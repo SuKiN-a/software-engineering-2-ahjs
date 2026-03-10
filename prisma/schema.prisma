@@ -134,4 +134,3 @@ model Invoice {
 
   @@map("invoices")
 }
-
