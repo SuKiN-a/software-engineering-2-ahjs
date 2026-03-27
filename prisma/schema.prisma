@@ -14,123 +14,76 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum EntryType {
+  INCOME
+  EXPENSE
+}
+
 model User {
-  id            String    @id
+  id            String   @id
   name          String
-  email         String
-  emailVerified Boolean   @default(false)
+  email         String   @unique
+  emailVerified Boolean  @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  sessions      Session[]
-  accounts      Account[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  role       String?
-  banned     Boolean?  @default(false)
-  banReason  String?
-  banExpires DateTime?
+  role String? // "ACCOUNTANT" or "CLIENT"
 
-  @@unique([email])
+  accountantId String?
+  accountant   User?   @relation("AccountantClients", fields: [accountantId], references: [id])
+  clients      User[]  @relation("AccountantClients")
+
+  invoices Invoice[]
+  entries  BookkeepingEntry[]
+
   @@map("user")
 }
 
-model Session {
-  id        String   @id
-  expiresAt DateTime
-  token     String
+model Invoice {
+  id         String @id @default(cuid())
+  fileUrl    String
+  rawOcrData Json?
+
+  vendorName    String?
+  invoiceNumber String?
+  invoiceDate   DateTime?
+  dueDate       DateTime?
+  totalAmount   Decimal?  @db.Decimal(10, 2)
+  taxAmount     Decimal?  @db.Decimal(10, 2)
+  currency      String    @default("USD")
+
+  status String @default("PENDING") // PENDING, CONFIRMED, REJECTED
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  bookkeepingEntry BookkeepingEntry?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  ipAddress String?
-  userAgent String?
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  impersonatedBy String?
-
-  @@unique([token])
-  @@index([userId])
-  @@map("session")
+  @@map("invoice")
 }
 
-model Account {
-  id                    String    @id
-  accountId             String
-  providerId            String
-  userId                String
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accessToken           String?
-  refreshToken          String?
-  idToken               String?
-  accessTokenExpiresAt  DateTime?
-  refreshTokenExpiresAt DateTime?
-  scope                 String?
-  password              String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+model BookkeepingEntry {
+  id           String    @id @default(cuid())
+  type         EntryType
+  date         DateTime
+  counterparty String
+  total        Decimal   @db.Decimal(10, 2)
+  tax          Decimal   @db.Decimal(10, 2)
+  category     String?
+  notes        String?
 
-  @@index([userId])
-  @@map("account")
-}
+  invoiceId String?  @unique
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id])
 
-model Verification {
-  id         String   @id
-  identifier String
-  value      String
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  @@index([identifier])
-  @@map("verification")
-}
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-enum AppRole {
-  admin
-  client
-
-  @@map("app_role")
-}
-
-model Profile {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId      String   @map("user_id") @db.Uuid
-  fullName    String   @default("") @map("full_name")
-  companyName String?  @default("") @map("company_name")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  @@map("profiles")
-}
-
-model UserRole {
-  id     String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId String  @map("user_id") @db.Uuid
-  role   AppRole
-
-  @@unique([userId, role], map: "user_roles_user_id_role_key")
-  @@map("user_roles")
-}
-
-model Invoice {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId             String   @map("user_id") @db.Uuid
-  type               String
-  status             String   @default("pending")
-  vendorCustomerName String?  @map("vendor_customer_name")
-  invoiceNumber      String?  @map("invoice_number")
-  invoiceDate        DateTime? @map("invoice_date") @db.Date
-  dueDate            DateTime? @map("due_date") @db.Date
-  totalAmount        Decimal? @map("total_amount")
-  vatAmount          Decimal  @default(0) @map("vat_amount")
-  currency           String   @default("USD")
-  category           String?
-  notes              String?
-  fileName           String?  @map("file_name")
-  fileUrl            String?  @map("file_url")
-  lineItems          Json     @default(dbgenerated("'[]'::jsonb")) @map("line_items") @db.JsonB
-  rawOcrData         Json?    @map("raw_ocr_data") @db.JsonB
-  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  @@map("invoices")
+  @@map("bookkeeping_entry")
 }
