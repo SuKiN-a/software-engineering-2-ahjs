@@ -1,4 +1,3 @@
-
 "use client";
 import { useState } from "react";
 
@@ -153,6 +152,20 @@ function UploadInvoiceModal({
           <button type="button" className="button-secondary" onClick={onClose}>
             Close
           </button>
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={async (x) => {
+              if (x.target.files) {
+                for (const file of x.target.files) {
+                  fetch("/api/invoice", {
+                    body: await file.bytes(),
+                    method: "POST",
+                  });
+                }
+              }
+            }}
+          />
         </div>
 
         <form
