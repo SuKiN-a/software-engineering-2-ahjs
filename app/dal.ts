@@ -4,6 +4,11 @@ import { auth } from "@/app/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
+
+import { PrismaClient } from "./generated/prisma";
+
+// Instantiate the client so it's available to your functions
+const prisma = new PrismaClient();
 export const verifySession = cache(async () => {
   const session = await auth.api.getSession({ headers: await headers() });
 
@@ -17,29 +22,22 @@ export const verifySession = cache(async () => {
  */
 
 // Get a single invoice with its binary type info
+
 export const getInvoiceById = cache(async (invoiceId: string) => {
   const { userId } = await verifySession();
 
   return await prisma.invoice.findFirst({
     where: {
       id: invoiceId,
-      userId: userId // Security: Only owner can fetch
+      userId: userId
     },
     include: {
       rawInvoice: {
-        select: { type: true }
+        select: {
+          type: true
+        }
       }
     }
-  });
-});
-
-// Get all invoices for the current client, sorted by newest first
-export const getMyInvoices = cache(async () => {
-  const { userId } = await verifySession();
-
-  return await prisma.invoice.findMany({
-    where: { userId },
-    orderBy: { createdAt: 'desc' },
   });
 });
 
